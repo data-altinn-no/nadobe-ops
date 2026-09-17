@@ -1,0 +1,12 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "WEBSITE_TIME_ZONE": "W. Europe Standard Time",
+    "KeyVaultNames": "my-first-vault,my-second-vault",
+    "KeyVaultExpiryWarningDays": "40",
+    "SlackWebhookUrl": "",
+    "SlackPostWhenNoFindings": "true"
+  }
+}

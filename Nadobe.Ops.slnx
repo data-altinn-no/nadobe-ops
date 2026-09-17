@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Nadobe.Ops.Functions/Nadobe.Ops.Functions.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/Nadobe.Ops.Functions.Tests/Nadobe.Ops.Functions.Tests.csproj" />
+  </Folder>
+</Solution>
