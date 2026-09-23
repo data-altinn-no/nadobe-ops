@@ -14,16 +14,19 @@ env:
   AZURE_FUNCTIONAPP_PACKAGE_PATH: './output' # publish output handed to the deploy action
   DOTNET_VERSION: '10.0.x' # set this to the dotnet version to use
 
+permissions:
+  contents: read
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: 'Checkout GitHub Action'
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Setup DotNet ${{ env.DOTNET_VERSION }} Environment
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -41,11 +44,14 @@ jobs:
       - name: 'Publish Function App'
         run: dotnet publish ${{ env.AZURE_FUNCTIONAPP_PROJECT }} --configuration Release --output ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
 
+      # Deploys with the publish profile. The app runs on a Flex Consumption plan, and the
+      # action cannot detect that from a publish profile, so 'sku' must be set explicitly or
+      # it falls back to Kudu zipdeploy, which Flex does not offer.
       - name: 'Run Azure Functions Action'
-        uses: Azure/functions-action@v1
+        uses: Azure/functions-action@c5060b3b8bb1ebbcb531abd00c822ecbaa8ea656 # v1.5.7
         id: fa
         with:
           app-name: ${{ secrets.FUNCTION_APP_NAME }}
-          slot-name: 'Production'
           package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_869FD5489B3C4ED3A8ACE4247500DC68 }}
+          sku: 'flexconsumption'
