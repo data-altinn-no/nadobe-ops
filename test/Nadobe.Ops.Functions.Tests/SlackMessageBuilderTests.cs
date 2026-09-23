@@ -31,9 +31,25 @@ public class SlackMessageBuilderTests
         var header = message.Blocks[0];
         Assert.Equal("header", header.Type);
         Assert.Equal("plain_text", header.Text.Type);
-        Assert.Contains("2 item(s) expiring within 40 days", header.Text.Text);
-        Assert.Contains("1 already expired", header.Text.Text);
+        Assert.Equal("Key Vault expiry: 1 already expired, 1 expiring within 40 days", header.Text.Text);
         Assert.Equal(header.Text.Text, message.Text);
+    }
+
+    [Fact]
+    public void Build_WithOnlyExpiredItems_DoesNotCallThemExpiring()
+    {
+        var message = SlackMessageBuilder.Build(Report([Entry("a", -40), Entry("b", -1)]));
+
+        Assert.Equal("Key Vault expiry: 2 already expired", message.Text);
+    }
+
+    [Fact]
+    public void Build_CountsUnreadableVaultsAlongsideFindings()
+    {
+        var message = SlackMessageBuilder.Build(
+            Report([Entry("a", 10)], failures: [new KeyVaultScanFailure("vault-b", "forbidden")]));
+
+        Assert.Equal("Key Vault expiry: 1 expiring within 40 days, 1 vault(s) unreadable", message.Text);
     }
 
     [Fact]

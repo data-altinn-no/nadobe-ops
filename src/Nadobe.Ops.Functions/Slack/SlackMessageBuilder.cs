@@ -58,15 +58,28 @@ public static class SlackMessageBuilder
                 : "Key Vault expiry: nothing expiring";
         }
 
+        // Expired and approaching items are disjoint, so the header counts them separately rather
+        // than reporting the total as "expiring" and then repeating the expired share of it.
         var expired = report.Expiring.Count(entry => entry.HasExpired);
-        var summary = $"Key Vault expiry: {report.Expiring.Count} item(s) expiring within {report.WarningDays} days";
+        var approaching = report.Expiring.Count - expired;
+        var parts = new List<string>(3);
 
         if (expired > 0)
         {
-            summary += $", {expired} already expired";
+            parts.Add($"{expired} already expired");
         }
 
-        return summary;
+        if (approaching > 0)
+        {
+            parts.Add($"{approaching} expiring within {report.WarningDays} days");
+        }
+
+        if (report.Failures.Count > 0)
+        {
+            parts.Add($"{report.Failures.Count} vault(s) unreadable");
+        }
+
+        return "Key Vault expiry: " + string.Join(", ", parts);
     }
 
     private static string FormatFinding(ExpiringKeyVaultItem entry)
