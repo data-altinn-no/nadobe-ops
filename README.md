@@ -30,8 +30,8 @@ The sample `GetHealth` function is then available at `http://localhost:7071/api/
 
 ## Key Vault expiry scan
 
-`ScanKeyVaultsForExpiry` runs weekdays at 08:00 UTC (NCRONTAB `0 0 8 * * 1-5`), which is 10:00 in
-Oslo in summer and 09:00 in winter, and logs every secret and certificate expiring within the warning
+`ScanKeyVaultsForExpiry` runs weekdays at 07:00 UTC (NCRONTAB `0 0 7 * * 1-5`), which is 09:00 in
+Oslo in summer and 08:00 in winter, and logs every secret and certificate expiring within the warning
 window. The hour is fixed in UTC because the hosting plan does not support time-zone settings. Items already past expiry are logged at `Error`,
 the rest at `Warning`. If a vault cannot be read the invocation fails, so a lost permission is
 alertable rather than silently reported as "nothing expiring".
