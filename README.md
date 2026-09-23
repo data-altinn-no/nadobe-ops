@@ -40,7 +40,7 @@ alertable rather than silently reported as "nothing expiring".
 
 | Setting | Required | Default | Description |
 | --- | --- | --- | --- |
-| `KeyVaultNames` | yes | — | Comma-separated vault names (`vault-a,vault-b`) or full vault URIs |
+| `KeyVaultNames` | yes | — | Comma-separated vault names (`vault-a,vault-b`) or full vault URIs. Append `=alias` to label a vault in Slack (`vault-a=dev,vault-b=prod`) |
 | `KeyVaultExpiryWarningDays` | no | `40` | Report items expiring within this many days |
 | `KeyVaultDnsSuffix` | no | `vault.azure.net` | Override for sovereign clouds |
 | `WEBSITE_TIME_ZONE` | — | — | Do **not** set on this app: unsupported on Linux Flex Consumption and can break TLS and metrics. The schedule is UTC |
@@ -79,9 +79,11 @@ reason when the status is `Failed`.
 ## Slack notifications
 
 Findings are posted to a Slack [incoming webhook](https://api.slack.com/messaging/webhooks) as a
-Block Kit message: a summary header, one line per item (:red_circle: for already expired,
-:large_yellow_circle: for approaching), any vaults that could not be read, and a scan-context footer.
-Lists longer than 25 items are truncated in Slack — the full set is always in the logs.
+Block Kit message: a summary header, then one section per vault in configured order, labelled with
+the vault's alias and listing certificates and secrets separately (:red_circle: for already expired,
+:large_yellow_circle: for approaching), with a divider between vaults. Any vaults that could not be
+read and a scan-context footer follow. Lists longer than 25 items are truncated in Slack — the full
+set is always in the logs.
 
 | Setting | Required | Default | Description |
 | --- | --- | --- | --- |

@@ -19,10 +19,10 @@ public sealed class KeyVaultExpiryScanner(
     {
         var settings = options.Value;
         var warningDays = warningDaysOverride ?? settings.KeyVaultExpiryWarningDays;
-        var vaultNames = settings.GetVaultNames();
+        var vaults = settings.GetVaults();
         var now = timeProvider.GetUtcNow();
 
-        if (vaultNames.Count == 0)
+        if (vaults.Count == 0)
         {
             logger.LogWarning(
                 "No vaults configured; set the {SettingName} app setting to a comma-separated list of vault names.",
@@ -37,11 +37,11 @@ public sealed class KeyVaultExpiryScanner(
         var failures = new List<KeyVaultScanFailure>();
         var itemsScanned = 0;
 
-        foreach (var vaultName in vaultNames)
+        foreach (var vault in vaults)
         {
             try
             {
-                await foreach (var item in inventory.EnumerateAsync(vaultName, cancellationToken))
+                await foreach (var item in inventory.EnumerateAsync(vault.Name, cancellationToken))
                 {
                     itemsScanned++;
 
@@ -51,7 +51,7 @@ public sealed class KeyVaultExpiryScanner(
                         continue;
                     }
 
-                    expiring.Add(new ExpiringKeyVaultItem(item, (expiresOn - now).TotalDays));
+                    expiring.Add(new ExpiringKeyVaultItem(item, (expiresOn - now).TotalDays, vault.DisplayName));
                 }
             }
             // An HttpClient timeout also surfaces as TaskCanceledException, so only treat cancellation
@@ -59,13 +59,13 @@ public sealed class KeyVaultExpiryScanner(
             catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
                 // One unreachable vault should not hide findings in the others.
-                logger.LogError(ex, "Failed to scan vault {VaultName}.", vaultName);
-                failures.Add(new KeyVaultScanFailure(vaultName, ex.Message));
+                logger.LogError(ex, "Failed to scan vault {VaultName}.", vault.Name);
+                failures.Add(new KeyVaultScanFailure(vault.Name, ex.Message));
             }
         }
 
         expiring.Sort(static (left, right) => left.DaysUntilExpiry.CompareTo(right.DaysUntilExpiry));
 
-        return new KeyVaultExpiryReport(expiring, failures, itemsScanned, warningDays, now);
+        return new KeyVaultExpiryReport(expiring, failures, itemsScanned, warningDays, now, vaults);
     }
 }

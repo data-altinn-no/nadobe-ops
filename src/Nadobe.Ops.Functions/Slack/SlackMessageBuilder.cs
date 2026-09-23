@@ -21,17 +21,27 @@ public static class SlackMessageBuilder
 
         if (report.Expiring.Count > 0)
         {
-            var lines = report.Expiring
-                .Take(MaxListedFindings)
-                .Select(FormatFinding)
-                .ToList();
+            // The report is sorted by urgency, so cutting the head keeps the most pressing findings
+            // whichever vault they are in. Grouping happens after the cut for the same reason.
+            var listed = report.Expiring.Take(MaxListedFindings).ToList();
+            var first = true;
 
-            if (report.Expiring.Count > MaxListedFindings)
+            foreach (var vault in GroupByVault(listed, report.Vaults ?? []))
             {
-                lines.Add($"_…and {report.Expiring.Count - MaxListedFindings} more, see the logs for the full list._");
+                if (!first)
+                {
+                    blocks.Add(SlackBlock.Divider());
+                }
+
+                first = false;
+                blocks.AddRange(ToSections(FormatVault(vault)));
             }
 
-            blocks.AddRange(ToSections(lines));
+            if (report.Expiring.Count > listed.Count)
+            {
+                blocks.Add(SlackBlock.Section(
+                    $"_…and {report.Expiring.Count - listed.Count} more, see the logs for the full list._"));
+            }
         }
 
         if (report.Failures.Count > 0)
@@ -82,14 +92,61 @@ public static class SlackMessageBuilder
         return "Key Vault expiry: " + string.Join(", ", parts);
     }
 
+    /// <summary>
+    /// One group per vault, in the configured order. Vaults missing from the configuration (which
+    /// only happens in tests) follow in order of their most urgent finding.
+    /// </summary>
+    private static IEnumerable<IGrouping<string, ExpiringKeyVaultItem>> GroupByVault(
+        IEnumerable<ExpiringKeyVaultItem> entries,
+        IReadOnlyList<KeyVaultTarget> vaults)
+    {
+        var rank = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var vault in vaults)
+        {
+            rank.TryAdd(vault.Name, rank.Count);
+        }
+
+        // OrderBy is stable, so unranked groups keep their first-appearance order.
+        return entries
+            .GroupBy(entry => entry.Item.VaultName, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(group => rank.TryGetValue(group.Key, out var index) ? index : int.MaxValue);
+    }
+
+    /// <summary>The vault's label, then its certificates and secrets under their own headings.</summary>
+    private static IEnumerable<string> FormatVault(IGrouping<string, ExpiringKeyVaultItem> vault)
+    {
+        yield return $"*{Escape(vault.First().VaultLabel)}*";
+
+        var byKind = vault
+            .GroupBy(entry => entry.Item.Kind)
+            .OrderBy(kind => kind.Key == KeyVaultItemKind.Certificate ? 0 : 1);
+
+        foreach (var kind in byKind)
+        {
+            yield return $"_{Heading(kind.Key)}_";
+
+            foreach (var entry in kind)
+            {
+                yield return FormatFinding(entry);
+            }
+        }
+    }
+
+    private static string Heading(KeyVaultItemKind kind) => kind switch
+    {
+        KeyVaultItemKind.Certificate => "Certificates",
+        KeyVaultItemKind.Secret => "Secrets",
+        _ => kind.ToString(),
+    };
+
     private static string FormatFinding(ExpiringKeyVaultItem entry)
     {
         var icon = entry.HasExpired ? ":red_circle:" : ":large_yellow_circle:";
         var days = (int)Math.Floor(Math.Abs(entry.DaysUntilExpiry));
         var timing = entry.HasExpired ? $"expired {days} day(s) ago" : $"expires in {days} day(s)";
 
-        return $"{icon} *{Escape(entry.Item.Name)}* ({entry.Item.Kind}) in `{Escape(entry.Item.VaultName)}` — " +
-               $"{timing} ({entry.Item.ExpiresOn:yyyy-MM-dd})";
+        return $"{icon} *{Escape(entry.Item.Name)}* — {timing} ({entry.Item.ExpiresOn:yyyy-MM-dd})";
     }
 
     /// <summary>Packs lines into as few section blocks as Slack's per-block length allows.</summary>

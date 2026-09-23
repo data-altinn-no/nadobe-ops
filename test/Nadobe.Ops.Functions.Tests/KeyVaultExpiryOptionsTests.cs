@@ -22,6 +22,21 @@ public class KeyVaultExpiryOptionsTests
     }
 
     [Fact]
+    public void GetVaults_ReadsOptionalAliasesAndKeepsOrder()
+    {
+        var options = new KeyVaultExpiryOptions { KeyVaultNames = "kv-a=dev, kv-b ,kv-c=, KV-A=again" };
+
+        KeyVaultTarget[] expected =
+        [
+            new("kv-a", "dev"),
+            new("kv-b", "kv-b"),
+            new("kv-c", "kv-c"),
+        ];
+
+        Assert.Equal(expected, options.GetVaults());
+    }
+
+    [Fact]
     public void BuildVaultUri_ExpandsBareName()
     {
         var options = new KeyVaultExpiryOptions();

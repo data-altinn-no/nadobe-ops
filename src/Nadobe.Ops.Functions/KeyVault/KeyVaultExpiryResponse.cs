@@ -26,6 +26,7 @@ public sealed record KeyVaultExpiryResponse(
 
 public sealed record ExpiringItemResponse(
     string VaultName,
+    string VaultDisplayName,
     string Name,
     string Kind,
     DateTimeOffset? ExpiresOn,
@@ -35,6 +36,7 @@ public sealed record ExpiringItemResponse(
     public static ExpiringItemResponse From(ExpiringKeyVaultItem entry) =>
         new(
             entry.Item.VaultName,
+            entry.VaultLabel,
             entry.Item.Name,
             entry.Item.Kind.ToString(),
             entry.Item.ExpiresOn,
