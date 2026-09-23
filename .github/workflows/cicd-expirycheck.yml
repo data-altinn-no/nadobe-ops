@@ -7,6 +7,10 @@ on:
   push:
     branches:
       - main
+  # Pull requests (including Dependabot) build and test only; publish and deploy are gated below.
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 env:
@@ -42,12 +46,14 @@ jobs:
       # Publishes the function app alone. Building the solution into a single output
       # folder would ship the test project and its frameworks to Azure.
       - name: 'Publish Function App'
+        if: github.event_name != 'pull_request'
         run: dotnet publish ${{ env.AZURE_FUNCTIONAPP_PROJECT }} --configuration Release --output ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
 
       # Deploys with the publish profile. The app runs on a Flex Consumption plan, and the
       # action cannot detect that from a publish profile, so 'sku' must be set explicitly or
       # it falls back to Kudu zipdeploy, which Flex does not offer.
       - name: 'Run Azure Functions Action'
+        if: github.event_name != 'pull_request'
         uses: Azure/functions-action@c5060b3b8bb1ebbcb531abd00c822ecbaa8ea656 # v1.5.7
         id: fa
         with:
