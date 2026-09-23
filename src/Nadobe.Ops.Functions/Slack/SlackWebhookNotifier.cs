@@ -16,7 +16,7 @@ public sealed class SlackWebhookNotifier(
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
     };
 
-    public async Task<bool> PostAsync(KeyVaultExpiryReport report, CancellationToken cancellationToken)
+    public async Task<SlackPostStatus> PostAsync(KeyVaultExpiryReport report, CancellationToken cancellationToken)
     {
         var settings = options.Value;
 
@@ -25,14 +25,14 @@ public sealed class SlackWebhookNotifier(
             logger.LogDebug(
                 "Slack posting is disabled; set the {SettingName} app setting to enable it.",
                 nameof(SlackOptions.SlackWebhookUrl));
-            return false;
+            return SlackPostStatus.NotConfigured;
         }
 
         var hasFindings = report.Expiring.Count > 0 || report.Failures.Count > 0;
 
         if (!hasFindings && !settings.SlackPostWhenNoFindings)
         {
-            return false;
+            return SlackPostStatus.NothingToPost;
         }
 
         var message = SlackMessageBuilder.Build(report);
@@ -54,6 +54,6 @@ public sealed class SlackWebhookNotifier(
             "Posted {FindingCount} expiry finding(s) and {FailureCount} vault failure(s) to Slack.",
             report.Expiring.Count, report.Failures.Count);
 
-        return true;
+        return SlackPostStatus.Posted;
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using Nadobe.Ops.Functions.KeyVault;
+using Nadobe.Ops.Functions.Slack;
 
 namespace Nadobe.Ops.Functions.Tests;
 
@@ -143,7 +144,7 @@ public class KeyVaultExpiryDebugFunctionTests
         var body = Assert.IsType<KeyVaultExpiryResponse>(result.Value);
 
         Assert.Empty(notifier.Posted);
-        Assert.False(body.PostedToSlack);
+        Assert.Equal("NotRequested", body.SlackStatus);
     }
 
     [Fact]
@@ -158,7 +159,24 @@ public class KeyVaultExpiryDebugFunctionTests
         var body = Assert.IsType<KeyVaultExpiryResponse>(result.Value);
 
         Assert.Single(notifier.Posted);
-        Assert.True(body.PostedToSlack);
+        Assert.Equal("Posted", body.SlackStatus);
+        Assert.Equal(StatusCodes.Status200OK, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task RunKeyVaultExpiryScan_ExplainsWhyNothingWasPosted()
+    {
+        var notifier = new FakeSlackNotifier { Result = SlackPostStatus.NotConfigured };
+        var inventory = new FakeKeyVaultInventory().WithVault("vault-a", Item("soon", 10));
+        var function = CreateFunction(inventory, notifier: notifier);
+
+        var result = Assert.IsType<ObjectResult>(
+            await function.RunKeyVaultExpiryScan(CreateRequest(notify: "true"), TestContext.Current.CancellationToken));
+        var body = Assert.IsType<KeyVaultExpiryResponse>(result.Value);
+
+        // Declining to post is not an error, but the response has to say which reason applied.
+        Assert.Equal("NotConfigured", body.SlackStatus);
+        Assert.Null(body.SlackError);
         Assert.Equal(StatusCodes.Status200OK, result.StatusCode);
     }
 
@@ -175,7 +193,7 @@ public class KeyVaultExpiryDebugFunctionTests
 
         Assert.Equal(StatusCodes.Status500InternalServerError, result.StatusCode);
         Assert.Equal("channel_not_found", body.SlackError);
-        Assert.False(body.PostedToSlack);
+        Assert.Equal("Failed", body.SlackStatus);
         Assert.Single(body.Expiring);
     }
 }

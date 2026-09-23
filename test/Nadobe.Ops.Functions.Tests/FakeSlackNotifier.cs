@@ -7,11 +7,11 @@ internal sealed class FakeSlackNotifier : ISlackNotifier
 {
     public List<KeyVaultExpiryReport> Posted { get; } = [];
 
-    public bool Result { get; set; } = true;
+    public SlackPostStatus Result { get; set; } = SlackPostStatus.Posted;
 
     public Exception? ThrowOnPost { get; set; }
 
-    public Task<bool> PostAsync(KeyVaultExpiryReport report, CancellationToken cancellationToken)
+    public Task<SlackPostStatus> PostAsync(KeyVaultExpiryReport report, CancellationToken cancellationToken)
     {
         if (ThrowOnPost is not null)
         {

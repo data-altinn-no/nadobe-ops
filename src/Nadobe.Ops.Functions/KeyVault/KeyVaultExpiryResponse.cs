@@ -1,23 +1,26 @@
+using Nadobe.Ops.Functions.Slack;
+
 namespace Nadobe.Ops.Functions.KeyVault;
 
 /// <summary>Serialisable shape of <see cref="KeyVaultExpiryReport"/> for the manual-trigger endpoint.</summary>
+/// <param name="SlackStatus">A <see cref="SlackPostStatus"/> name, so an unposted run says why.</param>
 public sealed record KeyVaultExpiryResponse(
     DateTimeOffset ScannedAtUtc,
     int WarningDays,
     int ItemsScanned,
     IReadOnlyList<ExpiringItemResponse> Expiring,
     IReadOnlyList<KeyVaultScanFailure> Failures,
-    bool PostedToSlack,
+    string SlackStatus,
     string? SlackError)
 {
-    public static KeyVaultExpiryResponse From(KeyVaultExpiryReport report, bool postedToSlack, string? slackError) =>
+    public static KeyVaultExpiryResponse From(KeyVaultExpiryReport report, SlackPostStatus slackStatus, string? slackError) =>
         new(
             report.ScannedAtUtc,
             report.WarningDays,
             report.ItemsScanned,
             [.. report.Expiring.Select(ExpiringItemResponse.From)],
             report.Failures,
-            postedToSlack,
+            slackStatus.ToString(),
             slackError);
 }
 

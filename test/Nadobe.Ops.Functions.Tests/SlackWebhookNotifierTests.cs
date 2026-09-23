@@ -62,7 +62,7 @@ public class SlackWebhookNotifierTests
 
         var posted = await notifier.PostAsync(ReportWithFinding(), TestContext.Current.CancellationToken);
 
-        Assert.True(posted);
+        Assert.Equal(SlackPostStatus.Posted, posted);
         var request = Assert.Single(handler.Requests);
         Assert.Equal(HttpMethod.Post, request.Method);
         Assert.Equal(new Uri(WebhookUrl), request.RequestUri);
@@ -79,7 +79,7 @@ public class SlackWebhookNotifierTests
 
         var posted = await notifier.PostAsync(ReportWithFinding(), TestContext.Current.CancellationToken);
 
-        Assert.False(posted);
+        Assert.Equal(SlackPostStatus.NotConfigured, posted);
         Assert.Empty(handler.Requests);
     }
 
@@ -90,7 +90,7 @@ public class SlackWebhookNotifierTests
 
         var posted = await notifier.PostAsync(EmptyReport(), TestContext.Current.CancellationToken);
 
-        Assert.False(posted);
+        Assert.Equal(SlackPostStatus.NothingToPost, posted);
         Assert.Empty(handler.Requests);
     }
 
@@ -101,7 +101,7 @@ public class SlackWebhookNotifierTests
 
         var posted = await notifier.PostAsync(EmptyReport(), TestContext.Current.CancellationToken);
 
-        Assert.True(posted);
+        Assert.Equal(SlackPostStatus.Posted, posted);
         Assert.Single(handler.Requests);
     }
 
@@ -113,7 +113,7 @@ public class SlackWebhookNotifierTests
 
         var posted = await notifier.PostAsync(report, TestContext.Current.CancellationToken);
 
-        Assert.True(posted);
+        Assert.Equal(SlackPostStatus.Posted, posted);
         Assert.Single(handler.Requests);
     }
 

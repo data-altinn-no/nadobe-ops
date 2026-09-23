@@ -30,8 +30,9 @@ The sample `GetHealth` function is then available at `http://localhost:7071/api/
 
 ## Key Vault expiry scan
 
-`ScanKeyVaultsForExpiry` runs weekdays at 10:00 (NCRONTAB `0 0 10 * * 1-5`) and logs every secret
-and certificate expiring within the warning window. Items already past expiry are logged at `Error`,
+`ScanKeyVaultsForExpiry` runs weekdays at 08:00 UTC (NCRONTAB `0 0 8 * * 1-5`), which is 10:00 in
+Oslo in summer and 09:00 in winter, and logs every secret and certificate expiring within the warning
+window. The hour is fixed in UTC because the hosting plan does not support time-zone settings. Items already past expiry are logged at `Error`,
 the rest at `Warning`. If a vault cannot be read the invocation fails, so a lost permission is
 alertable rather than silently reported as "nothing expiring".
 
@@ -42,12 +43,13 @@ alertable rather than silently reported as "nothing expiring".
 | `KeyVaultNames` | yes | — | Comma-separated vault names (`vault-a,vault-b`) or full vault URIs |
 | `KeyVaultExpiryWarningDays` | no | `40` | Report items expiring within this many days |
 | `KeyVaultDnsSuffix` | no | `vault.azure.net` | Override for sovereign clouds |
-| `WEBSITE_TIME_ZONE` | no | UTC | Timer schedules are UTC unless set, e.g. `W. Europe Standard Time` |
+| `WEBSITE_TIME_ZONE` | — | — | Do **not** set on this app: unsupported on Linux Flex Consumption and can break TLS and metrics. The schedule is UTC |
 
 ### Access
 
-The function app's managed identity needs read access to each vault: **Key Vault Reader** plus
-**Key Vault Secrets User** under RBAC, or `list` on secrets and certificates under access policies.
+The function app's managed identity needs list access to each vault: **Key Vault Reader** under RBAC,
+or `list` on secrets and certificates under access policies. A vault uses one model or the other, so
+check which before granting.
 Only metadata is read — no secret or certificate values are fetched.
 
 ### Triggering the scan manually
@@ -69,6 +71,10 @@ curl "https://<app>.azurewebsites.net/api/debug/keyvault-expiry?code=<function-k
 response is `500` when any vault could not be read — the body still lists the findings from the
 vaults that succeeded, plus the failing vault and its reason. Findings are also written to the
 same log lines as the scheduled run.
+
+The body also carries `slackStatus`, one of `Posted`, `NotRequested`, `NotConfigured`,
+`NothingToPost` or `Failed`, so a run that did not post says why. `slackError` holds the webhook's
+reason when the status is `Failed`.
 
 ## Slack notifications
 

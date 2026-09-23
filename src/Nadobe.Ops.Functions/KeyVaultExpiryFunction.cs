@@ -14,14 +14,15 @@ public class KeyVaultExpiryFunction(
     ILogger<KeyVaultExpiryFunction> logger)
 {
     /// <summary>
-    /// Weekdays at 10:00. NCRONTAB fields are second, minute, hour, day, month, day-of-week;
-    /// the host interprets this in UTC unless the WEBSITE_TIME_ZONE app setting is set.
+    /// Weekdays at 08:00 UTC, which is 10:00 in Oslo during summer time and 09:00 in winter. NCRONTAB
+    /// fields are second, minute, hour, day, month, day-of-week. The host runs in UTC: WEBSITE_TIME_ZONE
+    /// is not supported on Linux Flex Consumption, so the offset has to live in the expression.
     /// </summary>
-    private const string WeekdaysAtTen = "0 0 10 * * 1-5";
+    private const string WeekdaysAtEightUtc = "0 0 8 * * 1-5";
 
     [Function(nameof(ScanKeyVaultsForExpiry))]
     public async Task ScanKeyVaultsForExpiry(
-        [TimerTrigger(WeekdaysAtTen)] TimerInfo timer,
+        [TimerTrigger(WeekdaysAtEightUtc)] TimerInfo timer,
         CancellationToken cancellationToken)
     {
         var report = await scanner.ScanAsync(cancellationToken);

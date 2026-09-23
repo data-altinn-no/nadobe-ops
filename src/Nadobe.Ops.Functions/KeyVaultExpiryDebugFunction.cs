@@ -43,25 +43,26 @@ public class KeyVaultExpiryDebugFunction(
 
         logger.LogFindings(report);
 
-        var postedToSlack = false;
+        var slackStatus = SlackPostStatus.NotRequested;
         string? slackError = null;
 
         if (notify)
         {
             try
             {
-                postedToSlack = await notifier.PostAsync(report, cancellationToken);
+                slackStatus = await notifier.PostAsync(report, cancellationToken);
             }
             // An HttpClient timeout also surfaces as TaskCanceledException, so only treat cancellation
             // as fatal when it is our own token that was cancelled.
             catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
                 logger.LogError(ex, "Failed to post Key Vault expiry findings to Slack.");
+                slackStatus = SlackPostStatus.Failed;
                 slackError = ex.Message;
             }
         }
 
-        var response = KeyVaultExpiryResponse.From(report, postedToSlack, slackError);
+        var response = KeyVaultExpiryResponse.From(report, slackStatus, slackError);
 
         // Mirror the timer's behaviour: an unreadable vault is a failure, not an empty result.
         // The body is still returned so the failing vault and its reason are visible.

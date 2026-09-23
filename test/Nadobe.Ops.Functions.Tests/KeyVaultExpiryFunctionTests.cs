@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using Nadobe.Ops.Functions.KeyVault;
+using Nadobe.Ops.Functions.Slack;
 
 namespace Nadobe.Ops.Functions.Tests;
 
@@ -86,7 +87,7 @@ public class KeyVaultExpiryFunctionTests
     [Fact]
     public async Task ScanKeyVaultsForExpiry_SucceedsWhenNothingIsExpiring()
     {
-        var notifier = new FakeSlackNotifier { Result = false };
+        var notifier = new FakeSlackNotifier { Result = SlackPostStatus.NothingToPost };
         var inventory = new FakeKeyVaultInventory().WithVault("vault-a", Item("later", 200));
 
         await CreateFunction(inventory, notifier)

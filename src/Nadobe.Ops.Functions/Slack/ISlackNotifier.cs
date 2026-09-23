@@ -5,8 +5,8 @@ namespace Nadobe.Ops.Functions.Slack;
 public interface ISlackNotifier
 {
     /// <summary>
-    /// Posts the report to Slack. Returns false when posting is disabled or the report is not worth
-    /// posting; throws when a post was attempted and failed.
+    /// Posts the report to Slack. Returns <see cref="SlackPostStatus.Posted"/>, or the reason nothing was
+    /// sent; throws when a post was attempted and failed.
     /// </summary>
-    Task<bool> PostAsync(KeyVaultExpiryReport report, CancellationToken cancellationToken);
+    Task<SlackPostStatus> PostAsync(KeyVaultExpiryReport report, CancellationToken cancellationToken);
 }
