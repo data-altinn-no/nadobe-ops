@@ -56,11 +56,53 @@ public class SlackMessageBuilderTests
     }
 
     [Fact]
-    public void Build_WithNoFindings_SaysSo()
+    public void Build_WithNoFindings_CelebratesAndNamesTheVaults()
+    {
+        var message = SlackMessageBuilder.Build(Report(
+            vaults: [new KeyVaultTarget("kv-a", "dev"), new KeyVaultTarget("kv-b", "qa"), new KeyVaultTarget("kv-c", "prod")]));
+
+        Assert.Equal("☀️ Key Vault expiry: all clear", message.Text);
+        Assert.Contains(
+            "🌤️ Blue skies over dev, qa and prod — no secrets or certificates expire within the next 40 days. Enjoy the sunshine! 😊",
+            AllText(message));
+    }
+
+    [Fact]
+    public void Build_WithNoFindingsAndNoVaultList_StillCelebrates()
     {
         var message = SlackMessageBuilder.Build(Report());
 
-        Assert.Equal("Key Vault expiry: nothing expiring", message.Text);
+        Assert.Equal("☀️ Key Vault expiry: all clear", message.Text);
+        Assert.Contains("Blue skies over every vault", AllText(message));
+    }
+
+    [Fact]
+    public void Build_WithFindings_MentionsTheConfiguredGroup()
+    {
+        var message = SlackMessageBuilder.Build(Report([Entry("soon", 10)]), mention: "<!subteam^S0123ABCDEF>");
+
+        Assert.StartsWith("<!subteam^S0123ABCDEF> Key Vault expiry:", message.Text);
+        Assert.Contains("<!subteam^S0123ABCDEF> — the items below need attention.", AllText(message));
+    }
+
+    [Fact]
+    public void Build_WithoutFindings_DoesNotMentionAnyone()
+    {
+        var clean = SlackMessageBuilder.Build(Report(), mention: "<!here>");
+        var unreadable = SlackMessageBuilder.Build(
+            Report(failures: [new KeyVaultScanFailure("vault-b", "forbidden")]), mention: "<!here>");
+
+        Assert.DoesNotContain("<!here>", AllText(clean) + clean.Text);
+        Assert.DoesNotContain("<!here>", AllText(unreadable) + unreadable.Text);
+    }
+
+    [Fact]
+    public void Build_WithUnreadableVaultButNoFindings_DoesNotCelebrate()
+    {
+        var message = SlackMessageBuilder.Build(Report(failures: [new KeyVaultScanFailure("vault-b", "forbidden")]));
+
+        Assert.Equal("Key Vault expiry: no findings, 1 vault(s) unreadable", message.Text);
+        Assert.DoesNotContain("Blue skies", AllText(message));
     }
 
     [Fact]

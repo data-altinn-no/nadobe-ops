@@ -44,12 +44,18 @@ public class SlackWebhookNotifierTests
         string webhookUrl = WebhookUrl,
         bool postWhenClean = false,
         HttpStatusCode statusCode = HttpStatusCode.OK,
-        string responseBody = "ok")
+        string responseBody = "ok",
+        string? mention = null)
     {
         var handler = new CapturingHandler(statusCode, responseBody);
         var notifier = new SlackWebhookNotifier(
             new HttpClient(handler),
-            Options.Create(new SlackOptions { SlackWebhookUrl = webhookUrl, SlackPostWhenNoFindings = postWhenClean }),
+            Options.Create(new SlackOptions
+            {
+                SlackWebhookUrl = webhookUrl,
+                SlackPostWhenNoFindings = postWhenClean,
+                SlackMentionOnFindings = mention ?? string.Empty,
+            }),
             NullLogger<SlackWebhookNotifier>.Instance);
 
         return (notifier, handler);
@@ -70,6 +76,17 @@ public class SlackWebhookNotifierTests
         using var payload = JsonDocument.Parse(handler.Bodies[0]);
         Assert.Contains("Key Vault expiry", payload.RootElement.GetProperty("text").GetString());
         Assert.NotEmpty(payload.RootElement.GetProperty("blocks").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task PostAsync_PassesTheConfiguredMentionThroughUnescaped()
+    {
+        var (notifier, handler) = CreateNotifier(mention: "<!subteam^S0123ABCDEF>");
+
+        await notifier.PostAsync(ReportWithFinding(), TestContext.Current.CancellationToken);
+
+        using var payload = JsonDocument.Parse(handler.Bodies[0]);
+        Assert.StartsWith("<!subteam^S0123ABCDEF> ", payload.RootElement.GetProperty("text").GetString());
     }
 
     [Fact]

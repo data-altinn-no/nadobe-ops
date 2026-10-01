@@ -88,7 +88,8 @@ set is always in the logs.
 | Setting | Required | Default | Description |
 | --- | --- | --- | --- |
 | `SlackWebhookUrl` | no | — | Incoming-webhook URL. Empty disables posting entirely |
-| `SlackPostWhenNoFindings` | no | `false` | Also post "nothing expiring", so a silent channel means a broken job |
+| `SlackPostWhenNoFindings` | no | `false` | Also post a sunny "all clear" when nothing is expiring and every vault was readable, so a silent channel means a broken job |
+| `SlackMentionOnFindings` | no | — | Mention to add when items are expiring, e.g. `<!subteam^S0123ABCDEF>` for a user group or `<!here>`. Plain `@name` text does not notify |
 
 `SlackWebhookUrl` is a credential — anyone holding it can post to the channel. Store it as a
 [Key Vault reference](https://learn.microsoft.com/azure/app-service/app-service-key-vault-references)

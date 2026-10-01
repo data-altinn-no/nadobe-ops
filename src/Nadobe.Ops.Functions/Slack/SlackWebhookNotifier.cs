@@ -35,7 +35,7 @@ public sealed class SlackWebhookNotifier(
             return SlackPostStatus.NothingToPost;
         }
 
-        var message = SlackMessageBuilder.Build(report);
+        var message = SlackMessageBuilder.Build(report, settings.SlackMentionOnFindings);
 
         using var response = await httpClient.PostAsJsonAsync(
             settings.SlackWebhookUrl, message, SerializerOptions, cancellationToken);

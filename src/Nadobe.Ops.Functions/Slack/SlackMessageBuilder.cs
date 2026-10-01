@@ -14,10 +14,28 @@ public static class SlackMessageBuilder
     /// <summary>Slack rejects section blocks over 3000 characters.</summary>
     private const int MaxSectionLength = 2900;
 
-    public static SlackMessage Build(KeyVaultExpiryReport report)
+    /// <param name="mention">
+    /// Slack mention markup such as <c>&lt;!subteam^ID&gt;</c> or <c>&lt;!here&gt;</c>, added only when
+    /// there are expiring items. Passed through unescaped, since escaping would defeat it.
+    /// </param>
+    public static SlackMessage Build(KeyVaultExpiryReport report, string? mention = null)
     {
         var summary = BuildSummary(report);
         var blocks = new List<SlackBlock> { SlackBlock.Header(summary) };
+        var text = summary;
+
+        if (report.Expiring.Count > 0 && !string.IsNullOrWhiteSpace(mention))
+        {
+            // Mentions only resolve in mrkdwn, so this cannot go in the plain_text header. The
+            // fallback text carries it too, so the push notification shows who was mentioned.
+            blocks.Add(SlackBlock.Section($"{mention.Trim()} — the items below need attention."));
+            text = $"{mention.Trim()} {summary}";
+        }
+
+        if (IsAllClear(report))
+        {
+            blocks.Add(SlackBlock.Section(BuildAllClear(report)));
+        }
 
         if (report.Expiring.Count > 0)
         {
@@ -56,16 +74,23 @@ public static class SlackMessageBuilder
         blocks.Add(SlackBlock.Section(
             $"_Scanned {report.ItemsScanned} item(s) with a {report.WarningDays}-day window at {report.ScannedAtUtc:u}._"));
 
-        return new SlackMessage(summary, blocks);
+        return new SlackMessage(text, blocks);
     }
+
+    /// <summary>Nothing expiring and every vault readable. An unreadable vault is not good news.</summary>
+    private static bool IsAllClear(KeyVaultExpiryReport report) =>
+        report.Expiring.Count == 0 && report.Failures.Count == 0;
 
     private static string BuildSummary(KeyVaultExpiryReport report)
     {
+        if (IsAllClear(report))
+        {
+            return "☀️ Key Vault expiry: all clear";
+        }
+
         if (report.Expiring.Count == 0)
         {
-            return report.Failures.Count > 0
-                ? $"Key Vault expiry: no findings, {report.Failures.Count} vault(s) unreadable"
-                : "Key Vault expiry: nothing expiring";
+            return $"Key Vault expiry: no findings, {report.Failures.Count} vault(s) unreadable";
         }
 
         // Expired and approaching items are disjoint, so the header counts them separately rather
@@ -90,6 +115,21 @@ public static class SlackMessageBuilder
         }
 
         return "Key Vault expiry: " + string.Join(", ", parts);
+    }
+
+    /// <summary>The good-news body: sunshine, blue skies, and the vaults it applies to.</summary>
+    private static string BuildAllClear(KeyVaultExpiryReport report)
+    {
+        var vaults = (report.Vaults ?? []).Select(vault => Escape(vault.DisplayName)).ToList();
+        var where = vaults.Count switch
+        {
+            0 => "every vault",
+            1 => vaults[0],
+            _ => string.Join(", ", vaults.Take(vaults.Count - 1)) + " and " + vaults[^1],
+        };
+
+        return $"🌤️ Blue skies over {where} — no secrets or certificates expire within the next " +
+               $"{report.WarningDays} days. Enjoy the sunshine! 😊";
     }
 
     /// <summary>

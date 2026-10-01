@@ -14,5 +14,12 @@ public sealed class SlackOptions
     /// <summary>Post a "nothing expiring" message too, so a silent channel means a broken job.</summary>
     public bool SlackPostWhenNoFindings { get; set; }
 
+    /// <summary>
+    /// Slack mention markup to add when there are expiring items: <c>&lt;!subteam^S0123ABCDEF&gt;</c>
+    /// for a user group (the ID is in the group's URL in Slack) or <c>&lt;!here&gt;</c>. Plain "@name"
+    /// text does not notify anyone. Empty disables mentions.
+    /// </summary>
+    public string SlackMentionOnFindings { get; set; } = string.Empty;
+
     public bool IsConfigured => !string.IsNullOrWhiteSpace(SlackWebhookUrl);
 }

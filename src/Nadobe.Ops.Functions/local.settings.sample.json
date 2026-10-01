@@ -6,6 +6,7 @@
     "KeyVaultNames": "my-first-vault=dev,my-second-vault=prod",
     "KeyVaultExpiryWarningDays": "40",
     "SlackWebhookUrl": "",
+    "SlackMentionOnFindings": "",
     "SlackPostWhenNoFindings": "true"
   }
 }
