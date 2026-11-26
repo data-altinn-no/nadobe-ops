@@ -56,24 +56,37 @@ public class SlackMessageBuilderTests
     }
 
     [Fact]
-    public void Build_WithNoFindings_CelebratesAndNamesTheVaults()
+    public void Build_WithNoFindings_SaysSoPlainlyAndNamesTheVaults()
     {
         var message = SlackMessageBuilder.Build(Report(
             vaults: [new KeyVaultTarget("kv-a", "dev"), new KeyVaultTarget("kv-b", "qa"), new KeyVaultTarget("kv-c", "prod")]));
 
-        Assert.Equal("☀️ Key Vault expiry: all clear", message.Text);
-        Assert.Contains(
-            "🌤️ Blue skies over dev, qa and prod — no secrets or certificates expire within the next 40 days. Enjoy the sunshine! 😊",
-            AllText(message));
+        Assert.Equal("Key Vault expiry: all clear", message.Text);
+        Assert.Equal("Key Vault expiry: all clear", message.Blocks[0].Text!.Text);
+        Assert.Equal(
+            "No secrets or certificates in dev, qa and prod expire within the next 40 days.",
+            message.Blocks[1].Text!.Text);
     }
 
     [Fact]
-    public void Build_WithNoFindingsAndNoVaultList_StillCelebrates()
+    public void Build_WithNoFindingsInOneVault_NamesIt()
+    {
+        var message = SlackMessageBuilder.Build(Report(vaults: [new KeyVaultTarget("kv-c", "prod")]));
+
+        Assert.Equal(
+            "No secrets or certificates in prod expire within the next 40 days.",
+            message.Blocks[1].Text!.Text);
+    }
+
+    [Fact]
+    public void Build_WithNoFindingsAndNoVaultList_StillSaysSo()
     {
         var message = SlackMessageBuilder.Build(Report());
 
-        Assert.Equal("☀️ Key Vault expiry: all clear", message.Text);
-        Assert.Contains("Blue skies over every vault", AllText(message));
+        Assert.Equal("Key Vault expiry: all clear", message.Text);
+        Assert.Equal(
+            "No secrets or certificates in any vault expire within the next 40 days.",
+            message.Blocks[1].Text!.Text);
     }
 
     [Fact]
@@ -97,12 +110,13 @@ public class SlackMessageBuilderTests
     }
 
     [Fact]
-    public void Build_WithUnreadableVaultButNoFindings_DoesNotCelebrate()
+    public void Build_WithUnreadableVaultButNoFindings_DoesNotReportAllClear()
     {
         var message = SlackMessageBuilder.Build(Report(failures: [new KeyVaultScanFailure("vault-b", "forbidden")]));
 
         Assert.Equal("Key Vault expiry: no findings, 1 vault(s) unreadable", message.Text);
-        Assert.DoesNotContain("Blue skies", AllText(message));
+        Assert.DoesNotContain("all clear", AllText(message));
+        Assert.DoesNotContain("No secrets or certificates", AllText(message));
     }
 
     [Fact]

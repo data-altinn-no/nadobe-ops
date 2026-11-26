@@ -76,6 +76,84 @@ The body also carries `slackStatus`, one of `Posted`, `NotRequested`, `NotConfig
 `NothingToPost` or `Failed`, so a run that did not post says why. `slackError` holds the webhook's
 reason when the status is `Failed`.
 
+## Pending consent sync report
+
+`ReportPendingConsentSyncOnWorkdays` and `ReportPendingConsentSyncOnWeekends` post every run of the
+pending consent sync in [core](https://github.com/data-altinn-no/core) to Slack. They do not call
+Core. They read the two lines the sync logs at the end of a run from Application Insights:
+
+```
+[NadobeTimer] pending-consent-sync elapsedMs=252340
+Completed pending consent sync checked=830 granted=12 denied=3 failed=0 notChecked=0
+```
+
+The report runs half an hour after the sync starts, so the run has time to finish and its log lines
+to arrive: Monday to Friday at 07:30, 11:30, 15:30 and 19:30 UTC, and Saturday and Sunday at 11:30
+UTC. The schedules are constants in `PendingConsentSyncReportFunction` and have to follow the ones in
+`FuncPendingConsentSync` in Core if those change.
+
+For each log source the report lists the runs that completed in the last 45 minutes, with the counts
+and the run time, and flags:
+
+- a run with failures,
+- a run that was stopped after too many failures in a row (`notChecked` above 0),
+- no completed run at all: the timer did not fire, or the run did not finish,
+- logs that could not be read.
+
+Runs and missing runs are also logged, at `Information`, `Warning` or `Error`. The invocation fails
+when logs could not be read or the Slack post failed, so a lost permission is alertable. It does not
+fail on a missing or failed run of the sync: that is a problem in Core, and reporting it is the job.
+
+### App settings
+
+The log sources are a list, so that more Application Insights instances can be added without a code
+change. Each source is a pair of indexed settings:
+
+| Setting | Required | Default | Description |
+| --- | --- | --- | --- |
+| `PendingConsentSyncLogSources__0__ResourceId` | yes | — | Resource id of the Application Insights instance Core logs to: `/subscriptions/…/resourceGroups/…/providers/microsoft.insights/components/…` |
+| `PendingConsentSyncLogSources__0__Name` | no | the resource name | Label for the source in Slack, e.g. `prod` |
+| `PendingConsentSyncReportLookbackMinutes` | no | `45` | How far back from the time of the report to look for completed runs |
+
+To report on another environment, add the same two settings with the next index
+(`PendingConsentSyncLogSources__1__ResourceId`, `PendingConsentSyncLogSources__1__Name`). Sources are
+reported in index order. An entry without a resource id is skipped. With no sources configured the
+functions log a warning and post nothing.
+
+The full resource id is needed because the name of an Application Insights instance, unlike a vault
+name, is not unique across Azure and gives no address to query.
+
+### Access
+
+The function app's managed identity needs to read the logs of each Application Insights instance:
+**Monitoring Reader** on the resource. If the Log Analytics workspace behind it is set to require
+workspace permissions, the role has to be granted on the workspace instead.
+
+### Triggering the report manually
+
+`RunPendingConsentSyncReport` makes the same report on demand and returns it in the body:
+
+```sh
+# the last 45 minutes
+curl "http://localhost:7071/api/debug/pending-consent-sync-report"
+
+# look further back for this call only, here 24 hours
+curl "http://localhost:7071/api/debug/pending-consent-sync-report?minutes=1440"
+
+# deployed, function key required; notify=true also posts to Slack
+curl "https://<app>.azurewebsites.net/api/debug/pending-consent-sync-report?minutes=1440&notify=true&code=<function-key>"
+```
+
+`minutes` is optional (1–10080). The response is `500` when the logs of a source could not be read or
+the Slack post failed; the body still lists the other sources, plus the failing one and its reason.
+`slackStatus` and `slackError` are as for the Key Vault scan.
+
+### Limits
+
+- A run is only seen through its summary line. If Core's telemetry is sampled and the line is
+  dropped, the run is reported as missing.
+- A run that takes more than half an hour is reported as missing by the report that follows it.
+
 ## Slack notifications
 
 Findings are posted to a Slack [incoming webhook](https://api.slack.com/messaging/webhooks) as a
@@ -88,8 +166,13 @@ set is always in the logs.
 | Setting | Required | Default | Description |
 | --- | --- | --- | --- |
 | `SlackWebhookUrl` | no | — | Incoming-webhook URL. Empty disables posting entirely |
-| `SlackPostWhenNoFindings` | no | `false` | Also post a sunny "all clear" when nothing is expiring and every vault was readable, so a silent channel means a broken job |
-| `SlackMentionOnFindings` | no | — | Mention to add when items are expiring, e.g. `<!subteam^S0123ABCDEF>` for a user group or `<!here>`. Plain `@name` text does not notify |
+| `SlackPostWhenNoFindings` | no | `false` | Also post an "all clear" when nothing is expiring and every vault was readable, so a silent channel means a broken job |
+| `SlackMentionOnFindings` | no | — | Mention to add when items are expiring, or when the pending consent sync needs attention, e.g. `<!subteam^S0123ABCDEF>` for a user group or `<!here>`. Plain `@name` text does not notify |
+
+The pending consent sync report uses the same webhook. It is posted for every run, also the ones that
+went well, so `SlackPostWhenNoFindings` does not apply to it. Each run is one line per log source,
+marked :white_check_mark: when everything was checked without failures, :warning: when some failed
+and :red_circle: when the run was stopped or no run was found.
 
 `SlackWebhookUrl` is a credential — anyone holding it can post to the channel. Store it as a
 [Key Vault reference](https://learn.microsoft.com/azure/app-service/app-service-key-vault-references)

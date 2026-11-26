@@ -1,5 +1,5 @@
-using System.Text;
 using Nadobe.Ops.Functions.KeyVault;
+using static Nadobe.Ops.Functions.Slack.SlackFormatting;
 
 namespace Nadobe.Ops.Functions.Slack;
 
@@ -10,9 +10,6 @@ public static class SlackMessageBuilder
 {
     /// <summary>Long lists are truncated; the full set is always in the logs.</summary>
     public const int MaxListedFindings = 25;
-
-    /// <summary>Slack rejects section blocks over 3000 characters.</summary>
-    private const int MaxSectionLength = 2900;
 
     /// <param name="mention">
     /// Slack mention markup such as <c>&lt;!subteam^ID&gt;</c> or <c>&lt;!here&gt;</c>, added only when
@@ -85,7 +82,7 @@ public static class SlackMessageBuilder
     {
         if (IsAllClear(report))
         {
-            return "☀️ Key Vault expiry: all clear";
+            return "Key Vault expiry: all clear";
         }
 
         if (report.Expiring.Count == 0)
@@ -117,19 +114,18 @@ public static class SlackMessageBuilder
         return "Key Vault expiry: " + string.Join(", ", parts);
     }
 
-    /// <summary>The good-news body: sunshine, blue skies, and the vaults it applies to.</summary>
+    /// <summary>The body of an all-clear message: what was checked, in which vaults, and how far ahead.</summary>
     private static string BuildAllClear(KeyVaultExpiryReport report)
     {
         var vaults = (report.Vaults ?? []).Select(vault => Escape(vault.DisplayName)).ToList();
         var where = vaults.Count switch
         {
-            0 => "every vault",
+            0 => "any vault",
             1 => vaults[0],
             _ => string.Join(", ", vaults.Take(vaults.Count - 1)) + " and " + vaults[^1],
         };
 
-        return $"🌤️ Blue skies over {where} — no secrets or certificates expire within the next " +
-               $"{report.WarningDays} days. Enjoy the sunshine! 😊";
+        return $"No secrets or certificates in {where} expire within the next {report.WarningDays} days.";
     }
 
     /// <summary>
@@ -188,36 +184,4 @@ public static class SlackMessageBuilder
 
         return $"{icon} *{Escape(entry.Item.Name)}* — {timing} ({entry.Item.ExpiresOn:yyyy-MM-dd})";
     }
-
-    /// <summary>Packs lines into as few section blocks as Slack's per-block length allows.</summary>
-    private static IEnumerable<SlackBlock> ToSections(IEnumerable<string> lines)
-    {
-        var current = new StringBuilder();
-
-        foreach (var line in lines)
-        {
-            if (current.Length > 0 && current.Length + line.Length + 1 > MaxSectionLength)
-            {
-                yield return SlackBlock.Section(current.ToString());
-                current.Clear();
-            }
-
-            if (current.Length > 0)
-            {
-                current.Append('\n');
-            }
-
-            current.Append(line);
-        }
-
-        if (current.Length > 0)
-        {
-            yield return SlackBlock.Section(current.ToString());
-        }
-    }
-
-    private static string Escape(string value) =>
-        value.Replace("&", "&amp;", StringComparison.Ordinal)
-            .Replace("<", "&lt;", StringComparison.Ordinal)
-            .Replace(">", "&gt;", StringComparison.Ordinal);
 }
