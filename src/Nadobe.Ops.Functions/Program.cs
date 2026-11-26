@@ -5,6 +5,8 @@ using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Nadobe.Ops.Functions.KeyVault;
+using Nadobe.Ops.Functions.AppInsights;
+using Nadobe.Ops.Functions.PendingConsentSync;
 using Nadobe.Ops.Functions.Slack;
 
 var builder = FunctionsApplication.CreateBuilder(args);
@@ -20,10 +22,13 @@ builder.Services.AddSingleton(TimeProvider.System);
 // Options bind from the configuration root, so each property is a flat app setting.
 builder.Services.Configure<KeyVaultExpiryOptions>(builder.Configuration);
 builder.Services.Configure<SlackOptions>(builder.Configuration);
+builder.Services.Configure<PendingConsentSyncReportOptions>(builder.Configuration);
 
 builder.Services.AddSingleton<TokenCredential>(_ => new DefaultAzureCredential());
 builder.Services.AddSingleton<IKeyVaultInventory, AzureKeyVaultInventory>();
 builder.Services.AddSingleton<KeyVaultExpiryScanner>();
+builder.Services.AddSingleton<ITraceLogReader, AzureMonitorTraceLogReader>();
+builder.Services.AddSingleton<PendingConsentSyncReporter>();
 
 builder.Services
     .AddHttpClient<ISlackNotifier, SlackWebhookNotifier>(client => client.Timeout = TimeSpan.FromSeconds(15));

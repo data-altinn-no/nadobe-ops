@@ -5,6 +5,8 @@
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
     "KeyVaultNames": "my-first-vault=dev,my-second-vault=prod",
     "KeyVaultExpiryWarningDays": "40",
+    "PendingConsentSyncLogSources__0__Name": "prod",
+    "PendingConsentSyncLogSources__0__ResourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-resource-group/providers/microsoft.insights/components/my-app-insights",
     "SlackWebhookUrl": "",
     "SlackMentionOnFindings": "",
     "SlackPostWhenNoFindings": "true"
